@@ -1,0 +1,258 @@
+openapi: 3.0.3
+info:
+  title: Регистрация пользователей в системе
+  description: Методы для регистрации пользователей в системе
+  version: 1.0.0
+paths:
+  /api/v1/registration/users/:
+    post:
+      tags:
+        - Регистрация пользователя
+      summary: Запрос на регистрацию пользователя
+      description: Регистрация нового пользователя
+      operationId: registerUser
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RegRequest'
+            
+      responses:
+        '201':
+          description: Пользователь успешно создан.
+            **Важно:** Ссылка для подтверждения аккаунта отправлена на указанный email
+          content:
+            application/json:
+              schema:
+                  $ref: '#/components/schemas/Success201'
+        '400':
+          description: |
+            Ошибка валидации входных данных.
+            Возможные причины:
+            - Неверный формат email
+            - Пароль не соответствует требованиям безопасности
+            - Отсутствуют обязательные поля
+            - Указанный email является временным
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error400'
+        '409':
+          description: |
+            Пользователь с указанным email уже существует.
+            **Рекомендация:** Предложить пользователю восстановить пароль или войти в систему.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error409'
+        '429':
+          description: |
+            Слишком много запросов с данного IP-адреса.
+            Лимит: 10 запросов в минуту.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error429'
+        '500':
+          description: Внутренняя ошибка сервера
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error500'
+
+      security: []
+      x-rate-limit:
+        window: 60
+        max: 10
+        description: Ограничение 10 запросов в минуту с одного IP
+
+components:
+  schemas:
+    RegRequest:
+      type: object
+      required:
+        - email 
+        - password
+      properties:
+        email:
+          type: string
+          format: email
+          pattern: '^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
+          maxLength: 254
+          example: "user@example.com"
+          description: |
+            Email пользователя.
+            **Валидация:**
+            - Должен соответствовать RFC 5322
+            - Максимальная длина: 254 символа
+            - Проверка на disposable-адреса
+            - Регистронезависимый (преобразуется к нижнему регистру)
+            
+            **Бизнес-правила:**
+            - Должен быть уникальным в системе
+            - Требуется подтверждение для активации аккаунта
+        password:
+          type: string
+          format: password
+          minLength: 8
+          maxLength: 128
+          
+          example: "SecurePass123"
+          description: |
+            Пароль пользователя.
+            
+            **Требования безопасности:**
+            - Минимум 8 символов
+            - Максимум 128 символов
+            - Минимум 1 заглавная буква (A-Z)
+            - Минимум 1 строчная буква (a-z)
+            - Минимум 1 цифра (0-9)
+            
+            **Обработка:**
+            - Хешируется алгоритмом bcrypt (cost factor: 12)
+            - Не возвращается в ответах API
+      additionalProperties: false
+
+    Success201:
+      required:
+        - data
+      type: object 
+      properties:
+        data:
+          title: Данные в ответе
+          type: object
+          properties:
+            userId:
+              type: string
+              format: uuid
+              example: "550e8400-e29b-41d4-a716-446655440000"
+              description: Уникальный идентификатор пользователя
+            email:
+              type: string
+              format: email
+              example: "user@example.com"
+            createdAt:
+              type: string
+              format: date-time
+              example: "2024-01-15T10:30:00Z"
+              description: Дата и время регистрации в UTC
+            message:
+              type: string
+              example: "Вы успешно зарегистрированы. На Вашу почту отправлена ссылка для подтверждения регистрации."
+              description: Информационное сообщение для пользователя
+   
+    Error400:
+      description: Ошибка 400
+      required:
+        - title
+        - status
+        - detail
+      type: object 
+      properties:
+        title:
+          title: Ответ (описание)
+          maxLength: 256
+          type: string
+          description: Описание HTTP-кода ответа
+          example: 'VALIDATION_ERROR'
+        status:
+          title: Ответ (код)
+          type: integer
+          description: Число, строго соответствует HTTP-коду ответа
+          example: 400
+        detail:
+          type: array
+          items:
+            type: object
+            properties:
+              field:
+                type: string
+                example: "email"
+                description: Поле, в котором обнаружена ошибка
+              message:
+                type: string
+                example: "Неверный формат email"
+                description: Человекочитаемое описание ошибки
+               
+                
+    Error409:
+      description: Ошибка 409
+      required:
+        - title
+        - status
+        - detail
+      type: object 
+      properties:
+        title:
+          title: Ответ (описание)
+          maxLength: 256
+          type: string
+          description: Описание HTTP-кода ответа
+          example: 'USER_EXISTS'
+        status:
+          title: Ответ (код)
+          type: integer
+          description: Число, строго соответствует HTTP-коду ответа
+          example: 409
+        detail:
+          title: Сообщение
+          type: string
+          example: "Пользователь с таким email уже зарегистрирован."
+          description: Описание ошибки
+
+    Error429:
+      description: Ошибка 429
+      required:
+        - title
+        - status
+        - detail
+      type: object 
+      properties:
+        title:
+          title: Ответ (описание)
+          maxLength: 256
+          type: string
+          description: Описание HTTP-кода ответа
+          example: 'RATE_LIMIT_EXCEEDED'
+        status:
+          title: Ответ (код)
+          type: integer
+          description: Число, строго соответствует HTTP-коду ответа
+          example: 429
+        detail:
+          title: Сообщение  
+          type: string
+          example: "Отправлено слишком много запросов на регистрацию с данного IP-адреса."
+          description: Описание ошибки
+        retryAfter:
+          title: Ограничение попыток запроса
+          type: integer
+          example: 60
+          description: Время в секундах до следующей попытки
+
+    Error500:
+      description: Ошибка 500
+      required:
+        - title
+        - code
+        - message
+      type: object 
+      properties:
+        title:
+          title: Ответ (описание)
+          maxLength: 256
+          type: string
+          description: Описание HTTP-кода ответа
+          example: 'INTERNAL_SERVER_ERROR'
+        status:
+          title: Ответ (код)
+          type: integer
+          description: Число, строго соответствует HTTP-коду ответа
+          example: 500
+        detail:
+          title: Сообщение
+          type: string
+          example: "Ошибка на стороне сервера. Пожалуйста, повторите попытку позже."
+          description: Описание ошибки
+ 
