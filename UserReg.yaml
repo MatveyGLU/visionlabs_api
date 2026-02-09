@@ -4,7 +4,7 @@ info:
   description: Методы для регистрации пользователей в системе
   version: 1.0.0
 paths:
-  /api/v1/registration/users/:
+  /api/v1/auth/register-user/:
     post:
       tags:
         - Регистрация пользователя
@@ -255,4 +255,5 @@ components:
           type: string
           example: "Ошибка на стороне сервера. Пожалуйста, повторите попытку позже."
           description: Описание ошибки
+
  
